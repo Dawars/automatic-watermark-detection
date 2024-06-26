@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+#SBATCH -p fat
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=500GB
+
 import pickle
 from pathlib import Path
 
@@ -13,8 +18,8 @@ image_dir = Path("/mnt/hdd/datasets/photobank")
 device = "cuda"
 backup_path = Path("watermark_mainichi_gray_multiple.pkl")
 
-num_images_load = 100
-num_images_estimate_alpha = 100
+num_images_load = 1000
+num_images_estimate_alpha = 1000
 num_images_solve = 100
 mask_logo = False
 
