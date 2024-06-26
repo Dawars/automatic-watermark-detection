@@ -11,7 +11,11 @@ num_channels = 1  # or 3
 
 image_dir = Path("/mnt/hdd/datasets/photobank")
 device = "cuda"
-images, image_paths = load_images(image_dir, num_images=1000, num_channels=num_channels)
+
+num_images_load = 1000
+num_images_estimate_alpha = 1000
+num_images_solve = 1000
+images, image_paths = load_images(image_dir, num_images=num_images_load, num_channels=num_channels)
 num_images = len(images)
 print(num_images)
 
@@ -80,7 +84,7 @@ if backup_path.exists():
     watermark_data = pickle.loads(backup_path.read_bytes())
 else:
     # get threshold of W_m for alpha matte estimate
-    alph_est = estimate_normalized_alpha(J, Wm, num_images=8000)
+    alph_est = estimate_normalized_alpha(J, Wm, num_images=num_images_estimate_alpha)
     if num_channels == 3:
         alph = torch.stack([alph_est, alph_est, alph_est], dim=0)
     else:
@@ -106,7 +110,7 @@ else:
     backup_path.write_bytes(pickle.dumps(watermark_data))
 
 
-Jt = J[:20]
+Jt = J[:num_images_solve]
 # now we have the values of alpha, Wm, J  # todo Wm or W_m?
 # Solve for all images
 
