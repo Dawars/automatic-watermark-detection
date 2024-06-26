@@ -11,10 +11,12 @@ num_channels = 1  # or 3
 
 image_dir = Path("/mnt/hdd/datasets/photobank")
 device = "cuda"
+backup_path = Path("watermark_mainichi_gray_multiple.pkl")
 
-num_images_load = 1000
-num_images_estimate_alpha = 1000
-num_images_solve = 1000
+num_images_load = 100
+num_images_estimate_alpha = 100
+num_images_solve = 100
+mask_logo = False
 images, image_paths = load_images(image_dir, num_images=num_images_load, num_channels=num_channels)
 num_images = len(images)
 print(num_images)
@@ -75,11 +77,11 @@ mask = np.zeros(gx.shape[:2], np.uint8)
 cv2.drawContours(mask, [bounds], -1, (255, 255, 255), -1, cv2.LINE_AA)
 mask = mask[bounds[:, 1].min():bounds[:, 1].max(), bounds[:, 0].min():bounds[:, 0].max()]
 plt.imsave("mask.png", mask, cmap="gray")
-Wm = Wm #* (mask > 0)[..., None]
+if mask_logo:
+    Wm = Wm * (mask > 0)[..., None]
 
 plt.imsave("W_m.png", Wm[:, :, 0], cmap="gray")
 
-backup_path = Path("watermark_mainichi_gray_multiple.pkl")
 if backup_path.exists():
     watermark_data = pickle.loads(backup_path.read_bytes())
 else:
