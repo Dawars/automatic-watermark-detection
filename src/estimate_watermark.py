@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import warnings
 
+import tqdm
 from PIL import Image
 from matplotlib import pyplot as plt
 import math
@@ -29,7 +30,7 @@ def load_images(image_dir: Path, num_images: int, num_channels: int):
 	images = []
 	image_paths = []
 	# images_cv = []
-	for filename in itertools.islice(image_dir.glob("*.jpg"), num_images):
+	for filename in tqdm.tqdm(itertools.islice(image_dir.glob("*.jpg"), num_images), total=num_images):
 		image = Image.open(filename).convert("RGB")
 		if num_channels == 1:  # skip color for now
 			image.convert("L")
@@ -55,8 +56,8 @@ def estimate_watermark(images):
 
 	# Compute gradients
 	print("Computing gradients.")
-	gradx = list(map(lambda x: cv2.Sobel(x, cv2.CV_64F, 1, 0, ksize=KERNEL_SIZE), images))
-	grady = list(map(lambda x: cv2.Sobel(x, cv2.CV_64F, 0, 1, ksize=KERNEL_SIZE), images))
+	gradx = list(map(lambda x: cv2.Sobel(x, cv2.CV_64F, 1, 0, ksize=KERNEL_SIZE), tqdm.tqdm(images)))
+	grady = list(map(lambda x: cv2.Sobel(x, cv2.CV_64F, 0, 1, ksize=KERNEL_SIZE), tqdm.tqdm(images)))
 
 	# Compute median of grads
 	print("Computing median gradients.")
