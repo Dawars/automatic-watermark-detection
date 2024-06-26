@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import os
 import scipy
+import tqdm
 from scipy.sparse import *
 from scipy.sparse import linalg
 from .estimate_watermark import *
@@ -127,7 +128,7 @@ def estimate_normalized_alpha(J, W_m, num_images=30, threshold=170, invert=False
 
     print("Estimating normalized alpha using %d images."%(num_images))
     # for all images, calculate alpha
-    for idx in range(num_images):
+    for idx in tqdm.trange(num_images):
         imgcopy = thr
         alph = closed_form_matte(J[idx], imgcopy)
         alpha[idx] = alph
@@ -142,18 +143,18 @@ def estimate_blend_factor(J, W_m, alph, threshold=0.01*255):
     gy_jm = np.zeros(J.shape)
 
     for i in range(K):
-        gx_jm[i] = cv2.Sobel(Jm[i], cv2.CV_64F, 1, 0, 3)
-        gy_jm[i] = cv2.Sobel(Jm[i], cv2.CV_64F, 0, 1, 3)
+        gx_jm[i] = cv2.Sobel(Jm[i], cv2.CV_64F, 1, 0, 3)[..., None]
+        gy_jm[i] = cv2.Sobel(Jm[i], cv2.CV_64F, 0, 1, 3)[..., None]
 
     Jm_grad = np.sqrt(gx_jm**2 + gy_jm**2)
 
-    est_Ik = alph*np.median(J, axis=0)
-    gx_estIk = cv2.Sobel(est_Ik, cv2.CV_64F, 1, 0, 3)
-    gy_estIk = cv2.Sobel(est_Ik, cv2.CV_64F, 0, 1, 3)
+    est_Ik = alph * np.median(J, axis=0)
+    gx_estIk = cv2.Sobel(est_Ik, cv2.CV_64F, 1, 0, 3)[..., None]
+    gy_estIk = cv2.Sobel(est_Ik, cv2.CV_64F, 0, 1, 3)[..., None]
     estIk_grad = np.sqrt(gx_estIk**2 + gy_estIk**2)
 
     C = []
-    for i in range(3):
+    for i in tqdm.trange(p):
         c_i = np.sum(Jm_grad[:,:,:,i]*estIk_grad[:,:,i])/np.sum(np.square(estIk_grad[:,:,i]))/K
         print(c_i)
         C.append(c_i)
@@ -196,11 +197,11 @@ def solve_images(J, W_m, alpha, W_init, gamma=1, beta=1, lambda_w=0.005, lambda_
 
         # Step 1
         print("Step 1")
-        alpha_gx = cv2.Sobel(alpha, cv2.CV_64F, 1, 0, 3)
-        alpha_gy = cv2.Sobel(alpha, cv2.CV_64F, 0, 1, 3)
+        alpha_gx = cv2.Sobel(alpha, cv2.CV_64F, 1, 0, 3)[..., None]
+        alpha_gy = cv2.Sobel(alpha, cv2.CV_64F, 0, 1, 3)[..., None]
 
-        Wm_gx = cv2.Sobel(W_m, cv2.CV_64F, 1, 0, 3)
-        Wm_gy = cv2.Sobel(W_m, cv2.CV_64F, 0, 1, 3)
+        Wm_gx = cv2.Sobel(W_m, cv2.CV_64F, 1, 0, 3)[..., None]
+        Wm_gy = cv2.Sobel(W_m, cv2.CV_64F, 0, 1, 3)[..., None]
 
         cx = diags(np.abs(alpha_gx).reshape(-1))
         cy = diags(np.abs(alpha_gy).reshape(-1))
@@ -208,17 +209,17 @@ def solve_images(J, W_m, alpha, W_init, gamma=1, beta=1, lambda_w=0.005, lambda_
         alpha_diag = diags(alpha.reshape(-1))
         alpha_bar_diag = diags((1-alpha).reshape(-1))
 
-        for i in range(K):
+        for i in tqdm.trange(K):
             # prep vars
-            Wkx = cv2.Sobel(Wk[i], cv2.CV_64F, 1, 0, 3)
-            Wky = cv2.Sobel(Wk[i], cv2.CV_64F, 0, 1, 3)
+            Wkx = cv2.Sobel(Wk[i], cv2.CV_64F, 1, 0, 3)[..., None]
+            Wky = cv2.Sobel(Wk[i], cv2.CV_64F, 0, 1, 3)[..., None]
 
-            Ikx = cv2.Sobel(Ik[i], cv2.CV_64F, 1, 0, 3)
-            Iky = cv2.Sobel(Ik[i], cv2.CV_64F, 0, 1, 3)
+            Ikx = cv2.Sobel(Ik[i], cv2.CV_64F, 1, 0, 3)[..., None]
+            Iky = cv2.Sobel(Ik[i], cv2.CV_64F, 0, 1, 3)[..., None]
 
             alphaWk = alpha*Wk[i]
-            alphaWk_gx = cv2.Sobel(alphaWk, cv2.CV_64F, 1, 0, 3)
-            alphaWk_gy = cv2.Sobel(alphaWk, cv2.CV_64F, 0, 1, 3)        
+            alphaWk_gx = cv2.Sobel(alphaWk, cv2.CV_64F, 1, 0, 3)[..., None]
+            alphaWk_gy = cv2.Sobel(alphaWk, cv2.CV_64F, 0, 1, 3)[..., None]
 
             phi_data = diags( Func_Phi_deriv(np.square(alpha*Wk[i] + (1-alpha)*Ik[i] - J[i]).reshape(-1)) )
             phi_W = diags( Func_Phi_deriv(np.square( np.abs(alpha_gx)*Wkx + np.abs(alpha_gy)*Wky  ).reshape(-1)) )
@@ -244,20 +245,20 @@ def solve_images(J, W_m, alpha, W_init, gamma=1, beta=1, lambda_w=0.005, lambda_
             
             Wk[i] = x[:size].reshape(m, n, p)
             Ik[i] = x[size:].reshape(m, n, p)
-            plt.subplot(3,1,1); plt.imshow(PlotImage(J[i]))
-            plt.subplot(3,1,2); plt.imshow(PlotImage(Wk[i]))
-            plt.subplot(3,1,3); plt.imshow(PlotImage(Ik[i]))
-            plt.draw()
-            plt.pause(0.001)
+            # plt.subplot(3,1,1); plt.imshow(PlotImage(J[i]))
+            # plt.subplot(3,1,2); plt.imshow(PlotImage(Wk[i]))
+            # plt.subplot(3,1,3); plt.imshow(PlotImage(Ik[i]))
+            # plt.draw()
+            # plt.pause(0.001)
             print(i)
 
         # Step 2
         print("Step 2")
         W = np.median(Wk, axis=0)
 
-        plt.imshow(PlotImage(W))
-        plt.draw()
-        plt.pause(0.001)
+        # plt.imshow(PlotImage(W))
+        # plt.draw()
+        # plt.pause(0.001)
         
         # Step 3
         print("Step 3")
@@ -265,8 +266,8 @@ def solve_images(J, W_m, alpha, W_init, gamma=1, beta=1, lambda_w=0.005, lambda_
         
         for i in range(K):
             alphaWk = alpha*Wk[i]
-            alphaWk_gx = cv2.Sobel(alphaWk, cv2.CV_64F, 1, 0, 3)
-            alphaWk_gy = cv2.Sobel(alphaWk, cv2.CV_64F, 0, 1, 3)        
+            alphaWk_gx = cv2.Sobel(alphaWk, cv2.CV_64F, 1, 0, 3)[..., None]
+            alphaWk_gy = cv2.Sobel(alphaWk, cv2.CV_64F, 0, 1, 3) [..., None]
             phi_f = diags( Func_Phi_deriv( ((Wm_gx - alphaWk_gx)**2 + (Wm_gy - alphaWk_gy)**2 ).reshape(-1)) )
             
             phi_kA = diags(( (Func_Phi_deriv((((alpha*Wk[i] + (1-alpha)*Ik[i] - J[i])**2)))) * ((W-Ik[i])**2)  ).reshape(-1))
@@ -287,11 +288,11 @@ def solve_images(J, W_m, alpha, W_init, gamma=1, beta=1, lambda_w=0.005, lambda_
 
         alpha = linalg.spsolve(A1, b1).reshape(m,n,p)
 
-        plt.imshow(PlotImage(alpha))
-        plt.draw()
-        plt.pause(0.001)
+        # plt.imshow(PlotImage(alpha))
+        # plt.draw()
+        # plt.pause(0.001)
     
-    return (Wk, Ik, W, alpha)
+    return Wk, Ik, W, alpha
 
 
 def changeContrastImage(J, I):

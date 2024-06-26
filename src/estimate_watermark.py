@@ -1,33 +1,57 @@
+import itertools
 import sys, os
+from pathlib import Path
+
 import cv2
 import numpy as np
 import warnings
+
+from PIL import Image
 from matplotlib import pyplot as plt
 import math
 import numpy
 import scipy, scipy.fftpack
+import torch
+from torchvision.transforms import PILToTensor, Compose, Lambda, ConvertImageDtype
+from torchvision.transforms.functional import crop
 
 # Variables
 KERNEL_SIZE = 3
 
-def estimate_watermark(foldername):
+
+def load_images(image_dir: Path, num_images: int, num_channels: int):
+	crop_size = 1000  # 1000 max
+
+	transform = Compose(
+		[PILToTensor(),
+		 Lambda(lambda x: crop(x, 0, 0, crop_size, crop_size)),
+		 ConvertImageDtype(torch.uint8)])
+	images = []
+	image_paths = []
+	# images_cv = []
+	for filename in itertools.islice(image_dir.glob("*.jpg"), num_images):
+		image = Image.open(filename).convert("RGB")
+		if num_channels == 1:  # skip color for now
+			image.convert("L")
+		else:
+			image.convert("RGB")
+
+		if image.width > image.height:  # watermark at same place for landscape photos
+			image_tensor = transform(image)
+			# plt.imsave(f"vis_crops/{filename.name}", image_tensor[0].cpu().numpy(), cmap="gray")
+			image_tensor = image_tensor[[0]]
+			image_paths.append(str(filename))
+			images.append(image_tensor.permute(1, 2, 0).numpy())
+
+	images_tensors = np.stack(images)
+	return images_tensors, image_paths
+
+
+def estimate_watermark(images):
 	"""
 	Given a folder, estimate the watermark (grad(W) = median(grad(J)))
 	Also, give the list of gradients, so that further processing can be done on it
 	"""
-	if not os.path.exists(foldername):
-		warnings.warn("Folder does not exist.", UserWarning)
-		return None
-
-	images = []
-	for r, dirs, files in os.walk(foldername):
-		# Get all the images
-		for file in files:
-			img = cv2.imread(os.sep.join([r, file]))
-			if img is not None:
-				images.append(img)
-			else:
-				print("%s not found."%(file))
 
 	# Compute gradients
 	print("Computing gradients.")
@@ -36,10 +60,10 @@ def estimate_watermark(foldername):
 
 	# Compute median of grads
 	print("Computing median gradients.")
-	Wm_x = np.median(np.array(gradx), axis=0) 					
-	Wm_y = np.median(np.array(grady), axis=0)
+	Wm_x = np.median(np.array(gradx), axis=0)[..., None]
+	Wm_y = np.median(np.array(grady), axis=0)[..., None]
 
-	return (Wm_x, Wm_y, gradx, grady)
+	return Wm_x, Wm_y, gradx, grady
 
 
 def PlotImage(image):
@@ -99,8 +123,8 @@ def poisson_reconstruct(gradx, grady, kernel_size=KERNEL_SIZE, num_iters=100, h=
 	Also return the squared difference of every step.
 	h = convergence rate
 	"""
-	fxx = cv2.Sobel(gradx, cv2.CV_64F, 1, 0, ksize=kernel_size)
-	fyy = cv2.Sobel(grady, cv2.CV_64F, 0, 1, ksize=kernel_size)
+	fxx = cv2.Sobel(gradx, cv2.CV_64F, 1, 0, ksize=kernel_size)[..., None]
+	fyy = cv2.Sobel(grady, cv2.CV_64F, 0, 1, ksize=kernel_size)[..., None]
 	laplacian = fxx + fyy
 	m,n,p = laplacian.shape
 
