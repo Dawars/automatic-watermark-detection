@@ -110,6 +110,7 @@ def get_xSobel_matrix(m, n, p):
     i, j, vals = zip(*actual_map)
     return coo_matrix((vals, (i, j)), shape=(size, size))
 
+
 # get estimated normalized alpha matte
 def estimate_normalized_alpha(J, W_m, num_images=30, threshold=170, invert=False, adaptive=False, adaptive_threshold=21, c2=10):
     _Wm = (255*PlotImage(np.average(W_m, axis=2))).astype(np.uint8)
@@ -126,7 +127,7 @@ def estimate_normalized_alpha(J, W_m, num_images=30, threshold=170, invert=False
     alpha = np.zeros((num_images, m, n))
     iterpatch = 900
 
-    print("Estimating normalized alpha using %d images."%(num_images))
+    print(f"Estimating normalized alpha using {num_images} images.")
     # for all images, calculate alpha
     for idx in tqdm.trange(num_images):
         imgcopy = thr
