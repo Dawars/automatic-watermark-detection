@@ -3,6 +3,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=500GB
 
+import multiprocessing as mp
 import pickle
 from pathlib import Path
 
@@ -186,4 +187,5 @@ def main():
 
 
 if __name__ == '__main__':
+    mp.freeze_support()
     main()

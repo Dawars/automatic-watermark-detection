@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
 import os
+
+import pymp
 import scipy
 import tqdm
 from scipy.sparse import *
@@ -124,15 +126,20 @@ def estimate_normalized_alpha(J, W_m, num_images=30, threshold=170, invert=False
     thr = np.stack([thr, thr, thr], axis=2)
 
     num, m, n, p = J.shape
-    alpha = np.zeros((num_images, m, n))
     iterpatch = 900
+
+    # alpha = np.zeros((num_images, m, n))
+    alpha = pymp.shared.array((num_images, m, n), dtype='double')
 
     print(f"Estimating normalized alpha using {num_images} images.")
     # for all images, calculate alpha
-    for idx in tqdm.trange(num_images):
-        imgcopy = thr
-        alph = closed_form_matte(J[idx], imgcopy)
-        alpha[idx] = alph
+    num_cpu_cores = int(os.environ.get("SLURM_CPUS_PER_TASK")) // 4
+    print(f"CPU cores {num_cpu_cores}")
+    with pymp.Parallel(num_cpu_cores) as p:
+        for idx in tqdm.tqdm(p.range(num_images)):
+            imgcopy = thr
+            alph = closed_form_matte(J[idx], imgcopy)
+            alpha[idx] = alph
 
     alpha = np.median(alpha, axis=0)
     return alpha
