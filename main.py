@@ -19,11 +19,12 @@ image_dir = Path("/mnt/hdd/datasets/photobank")
 device = "cuda"
 backup_path = Path("watermark_mainichi_gray_multiple.pkl")
 
-num_images_load = 1000
-num_images_estimate_alpha = 1000
+num_images_load = 100
+num_images_estimate_alpha = 100
 num_images_solve = 100
 mask_logo = False
-
+savedir = "multi_patches"
+os.makedirs(savedir, exist_ok=True)
 
 def main():
     images, image_paths = load_images(image_dir, num_images=num_images_load, num_channels=num_channels)
@@ -52,7 +53,7 @@ def main():
     grad = np.sqrt(gx**2 + gy**2)
     cv2.drawContours(grad, bounds_all, -1, (255, 255, 255), 1, cv2.LINE_AA)
     # cv2.drawContours(grad, [template_bounds], -1, (255, 255, 255), 1, cv2.LINE_AA)
-    plt.imsave("grad_mag.png", grad[..., 0])
+    plt.imsave(f"{savedir}/grad_mag.png", grad[..., 0])
 
     gradx_logo = gx[template_bounds[:, 1].min():template_bounds[:, 1].max(), template_bounds[:, 0].min():template_bounds[:, 0].max()]
     grady_logo = gy[template_bounds[:, 1].min():template_bounds[:, 1].max(), template_bounds[:, 0].min():template_bounds[:, 0].max()]
@@ -85,11 +86,11 @@ def main():
     mask = np.zeros(gx.shape[:2], np.uint8)
     cv2.drawContours(mask, [bounds], -1, (255, 255, 255), -1, cv2.LINE_AA)
     mask = mask[bounds[:, 1].min():bounds[:, 1].max(), bounds[:, 0].min():bounds[:, 0].max()]
-    plt.imsave("mask.png", mask, cmap="gray")
+    plt.imsave(f"{savedir}/mask.png", mask, cmap="gray")
     if mask_logo:
         Wm = Wm * (mask > 0)[..., None]
 
-    plt.imsave("W_m.png", Wm[:, :, 0], cmap="gray")
+    plt.imsave(f"{savedir}/W_m.png", Wm[:, :, 0], cmap="gray")
 
     if backup_path.exists():
         watermark_data = pickle.loads(backup_path.read_bytes())
@@ -101,7 +102,7 @@ def main():
         else:
             alph = alph_est[..., None]
         C, est_Ik = estimate_blend_factor(J, Wm, alph)
-        plt.imsave("est_Ik.png", est_Ik[..., 0], cmap="gray")
+        plt.imsave(f"{savedir}/est_Ik.png", est_Ik[..., 0], cmap="gray")
         alpha = alph.copy()
         for i in range(num_channels):
             alpha[:, :, i] = C[i] * alpha[:, :, i]
@@ -146,7 +147,7 @@ def main():
     plt.imshow(W, cmap="gray")
     plt.colorbar()
     plt.axis("off")
-    plt.savefig(f"solve_images_input_cv.png")
+    plt.savefig(f"{savedir}/solve_images_input_cv.png")
 
     Wk, Ik, W, alpha1 = solve_images(Jt,
                                      W_m,
@@ -156,8 +157,8 @@ def main():
     # ret, thr = cv2.threshold(W_m_threshold, 127, 255, cv2.THRESH_BINARY)
 
     for i in range(len(Wk)):
-        plt.imsave(f"recon/Jt_{i}.png", Jt[i, :, :, 0], cmap="gray")
-        plt.imsave(f"recon/Ik_{i}.png", Ik[i, :, :, 0], cmap="gray")
+        plt.imsave(f"{savedir}/Jt_{i}.png", Jt[i, :, :, 0], cmap="gray")
+        plt.imsave(f"{savedir}/Ik_{i}.png", Ik[i, :, :, 0], cmap="gray")
 
         plt.subplot(4, 2, 1)
         plt.imshow(Jt[i, :, :, 0], cmap="gray")
@@ -179,7 +180,7 @@ def main():
         plt.imshow(alpha1[..., 0], cmap="gray")
         plt.colorbar()
         plt.axis("off")
-        plt.savefig(f"recon/output_{i}.png")
+        plt.savefig(f"{savedir}/output_{i}.png")
         plt.close()
 
 
